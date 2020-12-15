@@ -1626,11 +1626,56 @@ RegionStoreManager::findLazyBinding(RegionBindingsConstRef B,
   return Result;
 }
 
+static SVal getSValAsConcreteInt(SValBuilder &SVB, SVal V, QualType baseT,
+                                 QualType elemT,
+                                 const RegionRawOffset &ORegionRawOffs) {
+  ASTContext &Ctx = SVB.getContext();
+
+  const llvm::APSInt *ConcreteValue = [&V](SVal Val) {
+    if (auto Int = V.getAs<nonloc::ConcreteInt>())
+      return &Int->getValue();
+    return &V.getAs<loc::ConcreteInt>()->getValue();
+  }(V);
+  assert(ConcreteValue);
+
+  const unsigned bitPosition = [&]() {
+    unsigned bitPos;
+    if (Ctx.getTargetInfo().isBigEndian())
+      bitPos = (Ctx.getTypeSizeInChars(baseT).getQuantity() -
+                Ctx.getTypeSizeInChars(elemT).getQuantity()) -
+               ORegionRawOffs.getOffset().getQuantity();
+    else
+      bitPos = ORegionRawOffs.getOffset().getQuantity();
+    return bitPos * Ctx.getCharWidth();
+  }();
+  const unsigned numBits =
+      Ctx.getCharWidth() * Ctx.getTypeSizeInChars(elemT).getQuantity();
+  if (bitPosition < ConcreteValue->getBitWidth() &&
+      (numBits + bitPosition) <= ConcreteValue->getBitWidth()) {
+    llvm::APInt bits = ConcreteValue->extractBits(numBits, bitPosition);
+    return SVB.makeIntVal(bits, true);
+  }
+  return UnknownVal();
+}
+
 SVal RegionStoreManager::getBindingForElement(RegionBindingsConstRef B,
                                               const ElementRegion* R) {
   // Check if the region has a binding.
-  if (const Optional<SVal> &V = B.getDirectBinding(R))
+  if (const Optional<SVal> &V = B.getDirectBinding(R)) {
+    if (V->isConstant()) {
+      const RegionRawOffset &O = R->getAsArrayOffset();
+      if (const TypedValueRegion *baseR =
+              dyn_cast_or_null<TypedValueRegion>(O.getRegion())) {
+        QualType baseT = baseR->getValueType();
+        if (baseT->isScalarType()) {
+          QualType elemT = R->getElementType();
+          if (elemT->isScalarType())
+            return getSValAsConcreteInt(svalBuilder, *V, baseT, elemT, O);
+        }
+      }
+    }
     return *V;
+  }
 
   const MemRegion* superR = R->getSuperRegion();
 
@@ -1721,6 +1766,10 @@ SVal RegionStoreManager::getBindingForElement(RegionBindingsConstRef B,
 
             if (V->isUnknownOrUndef())
               return *V;
+
+            if (V->isConstant())
+              return getSValAsConcreteInt(svalBuilder, *V, baseT, elemT, O);
+
             // Other cases: give up.  We are indexing into a larger object
             // that has some value, but we don't know how to handle that yet.
             return UnknownVal();
