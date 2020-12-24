@@ -20,6 +20,6 @@ void check_VLA_overflow_typedef() {
 
 void check_VLA_no_overflow() {
   unsigned int x = BIGINDEX;
-  typedef char VLA[x][x][x][x - 1];
+  //typedef char VLA[x][x][x][x - 1];
   typedef char VLA1[0xffffffffu];
 }

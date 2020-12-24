@@ -14,11 +14,14 @@
 #include "clang/Analysis/ConstructionContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/Analysis/ConstructionContext.h"
 #include "clang/AST/ParentMap.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/DynamicSize.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
 
 using namespace clang;
 using namespace ento;
@@ -856,11 +859,13 @@ void ExprEngine::VisitCXXNewExpr(const CXXNewExpr *CNE, ExplodedNode *Pred,
   // heap. We realize this is an approximation that might not correctly model
   // a custom global allocator.
   if (symVal.isUnknown()) {
-    if (IsStandardGlobalOpNewFunction)
+    if (IsStandardGlobalOpNewFunction) {
       symVal = svalBuilder.getConjuredHeapSymbolVal(CNE, LCtx, blockCount);
-    else
+      State = setDynamicSize(State, symVal.getAsRegion(), CNE, LCtx, svalBuilder);
+    } else {
       symVal = svalBuilder.conjureSymbolVal(nullptr, CNE, LCtx, CNE->getType(),
                                             blockCount);
+    }
   }
 
   CallEventManager &CEMgr = getStateManager().getCallEventManager();

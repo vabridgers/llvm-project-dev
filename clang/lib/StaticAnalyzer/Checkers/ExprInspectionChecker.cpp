@@ -22,8 +22,8 @@ using namespace clang;
 using namespace ento;
 
 namespace {
-class ExprInspectionChecker : public Checker<eval::Call, check::DeadSymbols,
-                                             check::EndAnalysis> {
+class ExprInspectionChecker 
+    : public Checker<eval::Call, check::DeadSymbols, check::EndAnalysis> {
   mutable std::unique_ptr<BugType> BT;
 
   // These stats are per-analysis, not per-branch, hence they shouldn't
@@ -44,6 +44,8 @@ class ExprInspectionChecker : public Checker<eval::Call, check::DeadSymbols,
   void analyzerExplain(const CallExpr *CE, CheckerContext &C) const;
   void analyzerPrintState(const CallExpr *CE, CheckerContext &C) const;
   void analyzerGetExtent(const CallExpr *CE, CheckerContext &C) const;
+  void analyzerDumpExtent(const CallExpr *CE, CheckerContext &C) const;
+  void analyzerDumpElementCount(const CallExpr *CE, CheckerContext &C) const;
   void analyzerHashDump(const CallExpr *CE, CheckerContext &C) const;
   void analyzerDenote(const CallExpr *CE, CheckerContext &C) const;
   void analyzerExpress(const CallExpr *CE, CheckerContext &C) const;
@@ -59,13 +61,16 @@ class ExprInspectionChecker : public Checker<eval::Call, check::DeadSymbols,
                           ExplodedNode *N,
                           Optional<SVal> ExprVal = None) const;
 
+  const Expr *getArgExpr(const CallExpr *CE, CheckerContext &C) const;
+  const MemRegion *getArgRegion(const CallExpr *CE, CheckerContext &C) const;
+
 public:
   bool evalCall(const CallEvent &Call, CheckerContext &C) const;
   void checkDeadSymbols(SymbolReaper &SymReaper, CheckerContext &C) const;
   void checkEndAnalysis(ExplodedGraph &G, BugReporter &BR,
                         ExprEngine &Eng) const;
 };
-}
+} // namespace
 
 REGISTER_SET_WITH_PROGRAMSTATE(MarkedSymbols, SymbolRef)
 REGISTER_MAP_WITH_PROGRAMSTATE(DenotedSymbols, SymbolRef, const StringLiteral *)
@@ -90,6 +95,10 @@ bool ExprInspectionChecker::evalCall(const CallEvent &Call,
                 &ExprInspectionChecker::analyzerWarnOnDeadSymbol)
           .StartsWith("clang_analyzer_explain",
                       &ExprInspectionChecker::analyzerExplain)
+          .Case("clang_analyzer_dumpExtent",
+                &ExprInspectionChecker::analyzerDumpExtent)
+          .Case("clang_analyzer_dumpElementCount",
+                &ExprInspectionChecker::analyzerDumpElementCount)
           .StartsWith("clang_analyzer_dump",
                       &ExprInspectionChecker::analyzerDump)
           .Case("clang_analyzer_getExtent",
@@ -172,6 +181,29 @@ ExplodedNode *ExprInspectionChecker::reportBug(llvm::StringRef Msg,
   return N;
 }
 
+const Expr *ExprInspectionChecker::getArgExpr(const CallExpr *CE,
+                                              CheckerContext &C) const {
+  if (CE->getNumArgs() == 0) {
+    reportBug("Missing argument", C);
+    return nullptr;
+  }
+  return CE->getArg(0);
+}
+
+const MemRegion *ExprInspectionChecker::getArgRegion(const CallExpr *CE,
+                                                     CheckerContext &C) const {
+  const Expr *Arg = getArgExpr(CE, C);
+  if (!Arg)
+    return nullptr;
+  const MemRegion *MR = C.getSVal(Arg).getAsRegion();
+  if (!MR) {
+    reportBug("Cannot obtain the region", C);
+    return nullptr;
+  }
+
+  return MR;
+}
+
 void ExprInspectionChecker::analyzerEval(const CallExpr *CE,
                                          CheckerContext &C) const {
   const LocationContext *LC = C.getPredecessor()->getLocationContext();
@@ -215,24 +247,22 @@ void ExprInspectionChecker::analyzerCheckInlined(const CallExpr *CE,
 
 void ExprInspectionChecker::analyzerExplain(const CallExpr *CE,
                                             CheckerContext &C) const {
-  if (CE->getNumArgs() == 0) {
-    reportBug("Missing argument for explaining", C);
+  const Expr *Arg = getArgExpr(CE, C);
+  if (!Arg)
     return;
-  }
 
-  SVal V = C.getSVal(CE->getArg(0));
+  SVal V = C.getSVal(Arg);
   SValExplainer Ex(C.getASTContext());
   reportBug(Ex.Visit(V), C);
 }
 
 void ExprInspectionChecker::analyzerDump(const CallExpr *CE,
                                          CheckerContext &C) const {
-  if (CE->getNumArgs() == 0) {
-    reportBug("Missing argument for dumping", C);
+  const Expr *Arg = getArgExpr(CE, C);
+  if (!Arg)
     return;
-  }
 
-  SVal V = C.getSVal(CE->getArg(0));
+  SVal V = C.getSVal(Arg);
 
   llvm::SmallString<32> Str;
   llvm::raw_svector_ostream OS(Str);
@@ -242,16 +272,10 @@ void ExprInspectionChecker::analyzerDump(const CallExpr *CE,
 
 void ExprInspectionChecker::analyzerGetExtent(const CallExpr *CE,
                                               CheckerContext &C) const {
-  if (CE->getNumArgs() == 0) {
-    reportBug("Missing region for obtaining extent", C);
-    return;
-  }
 
-  auto MR = dyn_cast_or_null<SubRegion>(C.getSVal(CE->getArg(0)).getAsRegion());
-  if (!MR) {
-    reportBug("Obtaining extent of a non-region", C);
+  const MemRegion *MR = getArgRegion(CE, C);
+  if (!MR)
     return;
-  }
 
   ProgramStateRef State = C.getState();
   DefinedOrUnknownSVal Size = getDynamicSize(State, MR, C.getSValBuilder());
@@ -260,6 +284,45 @@ void ExprInspectionChecker::analyzerGetExtent(const CallExpr *CE,
   C.addTransition(State);
 }
 
+void ExprInspectionChecker::analyzerDumpExtent(const CallExpr *CE,
+                                             CheckerContext &C) const {
+  const MemRegion *MR = getArgRegion(CE, C);
+  if (!MR)
+    return;
+
+  DefinedOrUnknownSVal Size =
+      getDynamicSize(C.getState(), MR, C.getSValBuilder());
+
+  SmallString<128> Msg;
+  llvm::raw_svector_ostream Out(Msg);
+  Out << Size;
+  reportBug(Out.str(), C);
+}
+
+void ExprInspectionChecker::analyzerDumpElementCount(const CallExpr *CE,
+                                                     CheckerContext &C) const {
+
+  const MemRegion *MR = getArgRegion(CE, C);
+  if (!MR)
+    return;
+
+  const auto *TVR = MR->getAs<TypedValueRegion>();
+
+  QualType Ty = TVR ? TVR->getValueType()
+                    : CE->getArg(0)->IgnoreParenImpCasts()->getType();
+  if (Ty->isPointerType())
+    Ty = Ty->getPointeeType();
+
+  DefinedOrUnknownSVal ElementCount =
+      getDynamicElementCount(C.getState(), MR, C.getSValBuilder(), Ty);
+
+  SmallString<128> Msg;
+  llvm::raw_svector_ostream Out(Msg);
+  Out << ElementCount;
+  reportBug(Out.str(), C);
+}
+
+
 void ExprInspectionChecker::analyzerPrintState(const CallExpr *CE,
                                                CheckerContext &C) const {
   C.getState()->dump();
@@ -267,9 +330,10 @@ void ExprInspectionChecker::analyzerPrintState(const CallExpr *CE,
 
 void ExprInspectionChecker::analyzerWarnOnDeadSymbol(const CallExpr *CE,
                                                      CheckerContext &C) const {
-  if (CE->getNumArgs() == 0)
+  const Expr *Arg = getArgExpr(CE, C);
+  if (!Arg)
     return;
-  SVal Val = C.getSVal(CE->getArg(0));
+  SVal Val = C.getSVal(Arg);
   SymbolRef Sym = Val.getAsSymbol();
   if (!Sym)
     return;
@@ -410,12 +474,11 @@ public:
 
 void ExprInspectionChecker::analyzerExpress(const CallExpr *CE,
                                             CheckerContext &C) const {
-  if (CE->getNumArgs() == 0) {
-    reportBug("clang_analyzer_express() requires a symbol", C);
+  const Expr *Arg = getArgExpr(CE, C);
+  if (!Arg)
     return;
-  }
 
-  SVal ArgVal = C.getSVal(CE->getArg(0));
+  SVal ArgVal = C.getSVal(Arg);
   SymbolRef Sym = ArgVal.getAsSymbol();
   if (!Sym) {
     reportBug("Not a symbol", C);

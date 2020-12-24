@@ -7007,7 +7007,7 @@
         </dict>
         <dict>
          <key>line</key><integer>564</integer>
-         <key>col</key><integer>12</integer>
+         <key>col</key><integer>8</integer>
          <key>file</key><integer>0</integer>
         </dict>
        </array>
@@ -7051,7 +7051,6 @@
   <dict>
    <key>0</key>
    <array>
-    <integer>557</integer>
     <integer>558</integer>
     <integer>559</integer>
     <integer>560</integer>

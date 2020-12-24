@@ -26,6 +26,8 @@ namespace ento {
 DefinedOrUnknownSVal getDynamicSize(ProgramStateRef State, const MemRegion *MR,
                                     SValBuilder &SVB);
 
+DefinedOrUnknownSVal getElementSize(QualType Ty, SValBuilder &SVB);
+
 /// Get the stored element count of the region \p MR.
 DefinedOrUnknownSVal getDynamicElementCount(ProgramStateRef State,
                                             const MemRegion *MR,
@@ -46,6 +48,16 @@ DefinedOrUnknownSVal getDynamicElementCount(ProgramStateRef State,
 ///   char *bufptr;
 ///   (bufptr) // size is unknown
 SVal getDynamicSizeWithOffset(ProgramStateRef State, const SVal &BufV);
+
+/// Set the dynamic size \p Size of the region \p MR.
+ProgramStateRef setDynamicSize(ProgramStateRef State, const MemRegion *MR,
+                               DefinedOrUnknownSVal Size, SValBuilder &SVB);
+
+/// Set the dynamic size of a CXXNewExpr \p NE by its region \p MR.
+ProgramStateRef setDynamicSize(ProgramStateRef State, const MemRegion *MR,
+                               const CXXNewExpr *NE,
+                               const LocationContext *LCtx, SValBuilder &SVB);
+
 
 } // namespace ento
 } // namespace clang

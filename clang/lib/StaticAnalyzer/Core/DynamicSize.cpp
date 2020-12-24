@@ -19,27 +19,63 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/SVals.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h"
 
+
+REGISTER_MAP_WITH_PROGRAMSTATE(DynamicSizeMap, const clang::ento::MemRegion *,
+                               clang::ento::DefinedOrUnknownSVal)
+
 namespace clang {
 namespace ento {
 
+/// Helper to bypass the top-level ElementRegion of \p MR.
+static const MemRegion *getSuperRegion(const MemRegion *MR) {
+
+  assert(MR);
+  if (const auto *ER = MR->getAs<ElementRegion>())
+    MR = ER->getSuperRegion();
+  return MR;
+}
+
+
 DefinedOrUnknownSVal getDynamicSize(ProgramStateRef State, const MemRegion *MR,
                                     SValBuilder &SVB) {
+  MR = getSuperRegion(MR);
+
+  if (const DefinedOrUnknownSVal *Size = State->get<DynamicSizeMap>(MR))
+    return *Size;
+
   return MR->getMemRegionManager().getStaticSize(MR, SVB);
+}
+
+DefinedOrUnknownSVal getElementSize(QualType Ty, SValBuilder &SVB) {
+  return SVB.makeIntVal(SVB.getContext().getTypeSizeInChars(Ty).getQuantity(),
+                        SVB.getArrayIndexType());
+}
+
+static DefinedOrUnknownSVal getSize(ProgramStateRef State, SVal ElementCount,
+                                    QualType Ty, SValBuilder &SVB) {
+  DefinedOrUnknownSVal ElementSize = getElementSize(Ty, SVB);
+
+  return SVB
+      .evalBinOp(State, BO_Mul, ElementCount, ElementSize,
+                 SVB.getArrayIndexType())
+      .castAs<DefinedOrUnknownSVal>();
 }
 
 DefinedOrUnknownSVal getDynamicElementCount(ProgramStateRef State,
                                             const MemRegion *MR,
                                             SValBuilder &SVB,
-                                            QualType ElementTy) {
-  MemRegionManager &MemMgr = MR->getMemRegionManager();
-  ASTContext &Ctx = MemMgr.getContext();
+                                            QualType Ty) {
+
+  MR = getSuperRegion(MR);
 
   DefinedOrUnknownSVal Size = getDynamicSize(State, MR, SVB);
-  SVal ElementSizeV = SVB.makeIntVal(
-      Ctx.getTypeSizeInChars(ElementTy).getQuantity(), SVB.getArrayIndexType());
+  SVal ElementSize = getElementSize(Ty, SVB);
+
+
+
 
   SVal DivisionV =
-      SVB.evalBinOp(State, BO_Div, Size, ElementSizeV, SVB.getArrayIndexType());
+      SVB.evalBinOp(State, BO_Div, Size, ElementSize, SVB.getArrayIndexType());
 
   return DivisionV.castAs<DefinedOrUnknownSVal>();
 }
@@ -65,6 +101,35 @@ SVal getDynamicSizeWithOffset(ProgramStateRef State, const SVal &BufV) {
   return SvalBuilder.evalBinOp(State, BinaryOperator::Opcode::BO_Sub,
                                ExtentInBytes, OffsetInBytes,
                                SvalBuilder.getArrayIndexType());
+}
+
+
+ProgramStateRef setDynamicSize(ProgramStateRef State, const MemRegion *MR,
+                               DefinedOrUnknownSVal Size, SValBuilder &SVB) {
+  if (Size.isUnknown())
+    return State;
+
+  /* FIXME: Make this work.
+  if (const auto CI = Size.getAs<nonloc::ConcreteInt>())
+     assert(CI->getValue().isUnsigned());*/
+
+  MR = getSuperRegion(MR);
+  return State->set<DynamicSizeMap>(MR, Size);
+}
+
+ProgramStateRef setDynamicSize(ProgramStateRef State, const MemRegion *MR,
+                               const CXXNewExpr *NE,
+                               const LocationContext *LCtx, SValBuilder &SVB) {
+  SVal ElementCount;
+  if (const Expr *SizeExpr = NE->getArraySize().getValueOr(nullptr)) {
+    ElementCount = State->getSVal(SizeExpr, LCtx);
+  } else {
+    ElementCount = SVB.makeIntVal(1, /*IsUnsigned=*/true);
+  }
+
+  return setDynamicSize(
+      State, MR, getSize(State, ElementCount, NE->getAllocatedType(), SVB),
+      SVB);
 }
 
 } // namespace ento

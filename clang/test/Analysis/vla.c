@@ -151,3 +151,36 @@ void b() {
       foo();
   }
 } // no-crash
+
+
+//  https://bugs.llvm.org/show_bug.cgi?id=47272
+int c(void) {
+  int d = 0;
+  while (a) {
+    int count = a - d;
+    int e[count];
+    if (count > 4)
+      d++;
+    else
+      d--;
+  }
+  return d;
+} // no-crash
+
+
+//  https://bugs.llvm.org/show_bug.cgi?id=28450
+void *volatile p;
+                                                                                
+int case28450(void)
+{
+  int n = 0;
+ lab:;
+  int x[n % 1000 + 1];
+  x[0] = 1;
+  x[n % 1000] = 2;
+  p = x;
+  n++;
+  if (n < 1000000)
+    goto lab;
+  return 0;
+}

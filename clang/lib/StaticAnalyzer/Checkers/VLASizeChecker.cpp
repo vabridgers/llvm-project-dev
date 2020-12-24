@@ -263,8 +263,6 @@ void VLASizeChecker::checkPreStmt(const DeclStmt *DS, CheckerContext &C) const {
     TypeToCheck = VD->getType().getCanonicalType();
   else if (const auto *TND = dyn_cast<TypedefNameDecl>(DS->getSingleDecl()))
     TypeToCheck = TND->getUnderlyingType().getCanonicalType();
-  else
-    return;
 
   const VariableArrayType *VLA = Ctx.getAsVariableArrayType(TypeToCheck);
   if (!VLA)
@@ -276,6 +274,8 @@ void VLASizeChecker::checkPreStmt(const DeclStmt *DS, CheckerContext &C) const {
 
   State = checkVLA(C, State, VLA, ArraySize);
   if (!State)
+    return;
+  if (!VD)
     return;
 
   auto ArraySizeNL = ArraySize.getAs<NonLoc>();
@@ -289,18 +289,14 @@ void VLASizeChecker::checkPreStmt(const DeclStmt *DS, CheckerContext &C) const {
   // declared. We do this by multiplying the array length by the element size,
   // then matching that with the array region's extent symbol.
 
-  if (VD) {
-    // Assume that the array's size matches the region size.
-    const LocationContext *LC = C.getLocationContext();
-    DefinedOrUnknownSVal DynSize =
-        getDynamicSize(State, State->getRegion(VD, LC), SVB);
-
-    DefinedOrUnknownSVal SizeIsKnown = SVB.evalEQ(State, DynSize, *ArraySizeNL);
-    State = State->assume(SizeIsKnown, true);
-
-    // Assume should not fail at this point.
-    assert(State);
-  }
+  //if (!VD) {
+  //  llvm::errs() << "VD is not VarDecl or TypedefNameDecl!\n";
+  //  return;
+  //}
+  DefinedOrUnknownSVal ArraySizeSVal = ArraySize.castAs<DefinedOrUnknownSVal>();
+  State =
+    setDynamicSize(State, State->getRegion(VD, C.getLocationContext()),
+                   ArraySizeSVal, SVB);
 
   // Remember our assumptions!
   C.addTransition(State);
