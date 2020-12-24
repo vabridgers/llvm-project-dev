@@ -543,3 +543,23 @@ int bz44493(void) {
 
 // CHECK: <key>name</key><string>BZ44493_GNUVA</string>
 // CHECK-NEXT: <key>expansion</key><string>--(a);</string>
+
+// Expected warning, and don't crash
+const char *traceid(const char *);
+int trace(int, const char *, int, ...);
+#define TRACE_CALL(tracelevel, ...) \
+  { __VA_ARGS__; }
+
+#define TRACE(tracelevel, str, ...) \
+  TRACE_CALL((tracelevel), trace((0), traceid("formatstr " str), 0, tracelevel, __VA_ARGS__))
+
+#define TRACE_WRAPPER TRACE
+
+void funcXXX(
+    void *Context_p) {
+  int localvar;
+  TRACE_WRAPPER(
+      localvar,
+      "localvar=%u ",
+      0); // expected-warning{{4th function call argument is an uninitialized value}}
+}

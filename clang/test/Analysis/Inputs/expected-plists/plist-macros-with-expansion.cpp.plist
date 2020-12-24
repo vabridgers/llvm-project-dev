@@ -6923,6 +6923,142 @@
    </array>
   </dict>
   </dict>
+  <dict>
+   <key>path</key>
+   <array>
+    <dict>
+     <key>kind</key><string>event</string>
+     <key>location</key>
+     <dict>
+      <key>line</key><integer>560</integer>
+      <key>col</key><integer>3</integer>
+      <key>file</key><integer>0</integer>
+     </dict>
+     <key>ranges</key>
+     <array>
+       <array>
+        <dict>
+         <key>line</key><integer>560</integer>
+         <key>col</key><integer>3</integer>
+         <key>file</key><integer>0</integer>
+        </dict>
+        <dict>
+         <key>line</key><integer>560</integer>
+         <key>col</key><integer>14</integer>
+         <key>file</key><integer>0</integer>
+        </dict>
+       </array>
+     </array>
+     <key>depth</key><integer>0</integer>
+     <key>extended_message</key>
+     <string>&apos;localvar&apos; declared without an initial value</string>
+     <key>message</key>
+     <string>&apos;localvar&apos; declared without an initial value</string>
+    </dict>
+    <dict>
+     <key>kind</key><string>control</string>
+     <key>edges</key>
+      <array>
+       <dict>
+        <key>start</key>
+         <array>
+          <dict>
+           <key>line</key><integer>560</integer>
+           <key>col</key><integer>3</integer>
+           <key>file</key><integer>0</integer>
+          </dict>
+          <dict>
+           <key>line</key><integer>560</integer>
+           <key>col</key><integer>5</integer>
+           <key>file</key><integer>0</integer>
+          </dict>
+         </array>
+        <key>end</key>
+         <array>
+          <dict>
+           <key>line</key><integer>561</integer>
+           <key>col</key><integer>3</integer>
+           <key>file</key><integer>0</integer>
+          </dict>
+          <dict>
+           <key>line</key><integer>561</integer>
+           <key>col</key><integer>15</integer>
+           <key>file</key><integer>0</integer>
+          </dict>
+         </array>
+       </dict>
+      </array>
+    </dict>
+    <dict>
+     <key>kind</key><string>event</string>
+     <key>location</key>
+     <dict>
+      <key>line</key><integer>561</integer>
+      <key>col</key><integer>3</integer>
+      <key>file</key><integer>0</integer>
+     </dict>
+     <key>ranges</key>
+     <array>
+       <array>
+        <dict>
+         <key>line</key><integer>561</integer>
+         <key>col</key><integer>3</integer>
+         <key>file</key><integer>0</integer>
+        </dict>
+        <dict>
+         <key>line</key><integer>564</integer>
+         <key>col</key><integer>12</integer>
+         <key>file</key><integer>0</integer>
+        </dict>
+       </array>
+     </array>
+     <key>depth</key><integer>0</integer>
+     <key>extended_message</key>
+     <string>4th function call argument is an uninitialized value</string>
+     <key>message</key>
+     <string>4th function call argument is an uninitialized value</string>
+    </dict>
+   </array>
+   <key>macro_expansions</key>
+   <array>
+    <dict>
+     <key>location</key>
+     <dict>
+      <key>line</key><integer>561</integer>
+      <key>col</key><integer>3</integer>
+      <key>file</key><integer>0</integer>
+     </dict>
+     <key>name</key><string>TRACE_WRAPPER</string>
+     <key>expansion</key><string>{ trace((0), traceid(&quot;formatstr &quot; str), 0, tracelevel,); }</string>
+    </dict>
+   </array>
+   <key>description</key><string>4th function call argument is an uninitialized value</string>
+   <key>category</key><string>Logic error</string>
+   <key>type</key><string>Uninitialized argument value</string>
+   <key>check_name</key><string>core.CallAndMessage</string>
+   <!-- This hash is experimental and going to change! -->
+   <key>issue_hash_content_of_line_in_context</key><string>7b4de363511977d731e5dfab4fd89c66</string>
+  <key>issue_context_kind</key><string>function</string>
+  <key>issue_context</key><string>funcXXX</string>
+  <key>issue_hash_function_offset</key><string>2</string>
+  <key>location</key>
+  <dict>
+   <key>line</key><integer>561</integer>
+   <key>col</key><integer>3</integer>
+   <key>file</key><integer>0</integer>
+  </dict>
+  <key>ExecutedLines</key>
+  <dict>
+   <key>0</key>
+   <array>
+    <integer>557</integer>
+    <integer>558</integer>
+    <integer>559</integer>
+    <integer>560</integer>
+    <integer>561</integer>
+   </array>
+  </dict>
+  </dict>
  </array>
  <key>files</key>
  <array>

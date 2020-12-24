@@ -1238,7 +1238,8 @@ getMacroExpansionInfo(const MacroParamMap &PrevParamMap,
           // the processing of DISPATCH what __VA_ARGS__ maps to, so we'll
           // retrieve the next series of tokens from that.
           if (TheTok.getIdentifierInfo() == VariadicParamII) {
-            TStream.injectRange(PrevParamMap.at(VariadicParamII));
+            if (PrevParamMap.find(VariadicParamII) != PrevParamMap.end())
+              TStream.injectRange(PrevParamMap.at(VariadicParamII));
             TStream.next(TheTok);
             continue;
           }
