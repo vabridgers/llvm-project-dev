@@ -16236,9 +16236,13 @@ CreateNewDecl:
 
       if (isStdBadAlloc && (!StdBadAlloc || getStdBadAlloc()->isImplicit()))
         StdBadAlloc = cast<CXXRecordDecl>(New);
-    } else
+    } else if (getLangOpts().isLangC()) {
+      New = CXXRecordDecl::Create(Context, Kind, SearchDC, KWLoc, Loc, Name,
+                                  cast_or_null<CXXRecordDecl>(PrevDecl));
+    } else {
       New = RecordDecl::Create(Context, Kind, SearchDC, KWLoc, Loc, Name,
                                cast_or_null<RecordDecl>(PrevDecl));
+    }
   }
 
   // C++11 [dcl.type]p3:
@@ -16479,6 +16483,12 @@ void Sema::ActOnStartCXXMemberDeclarations(Scope *S, Decl *TagD,
          "Broken injected-class-name");
 }
 
+void Sema::ActOnCMemberDeclarations() {
+  // This action is normally part of Sema::ActOnStartCXXMemberDeclarations()
+  // invoked during C++ class/struct/union handling.
+  FieldCollector->StartClass();
+}
+
 void Sema::ActOnTagFinishDefinition(Scope *S, Decl *TagD,
                                     SourceRange BraceRange) {
   AdjustDeclIfTemplate(TagD);
@@ -16649,6 +16659,10 @@ Decl *Sema::ActOnField(Scope *S, Decl *TagD, SourceLocation DeclStart,
   FieldDecl *Res = HandleField(S, cast_or_null<RecordDecl>(TagD),
                                DeclStart, D, static_cast<Expr*>(BitfieldWidth),
                                /*InitStyle=*/ICIS_NoInit, AS_public);
+
+  if (getLangOpts().isLangC())
+    FieldCollector->Add(Res);
+
   return Res;
 }
 
@@ -17198,6 +17212,12 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
   RecordDecl *Record = dyn_cast<RecordDecl>(EnclosingDecl);
   CXXRecordDecl *CXXRecord = dyn_cast<CXXRecordDecl>(EnclosingDecl);
 
+  // If compiling for FlexC then this isn't really a C++ class.
+  if (getLangOpts().isLangC()) {
+    //llvm::errs() << "not really a c++ class\n";
+    CXXRecord = nullptr;
+  }
+
   // Start counting up the number of named members; make sure to include
   // members of anonymous structs and unions in the total.
   unsigned NumNamedMembers = 0;
@@ -17487,7 +17507,14 @@ void Sema::ActOnFields(Scope *S, SourceLocation RecLoc, Decl *EnclosingDecl,
     }
 
     if (!Completed)
-      Record->completeDefinition();
+      //Record->completeDefinition();
+      // Since FlexC CTSA uses CXXDeclRecord for representation but still needs
+      // to treat as a C struct/union, ensure that Record::completeDefinition()
+      // is called and not the CXXDeclRecord override.
+      if (getLangOpts().isLangC() && isa<CXXRecordDecl>(Record))
+        Record->RecordDecl::completeDefinition();
+      else 
+        Record->completeDefinition();
 
     // Handle attributes before checking the layout.
     ProcessDeclAttributeList(S, Record, Attrs);

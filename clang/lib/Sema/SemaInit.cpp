@@ -1842,7 +1842,9 @@ void InitListChecker::CheckVectorType(const InitializedEntity &Entity,
 static bool checkDestructorReference(QualType ElementType, SourceLocation Loc,
                                      Sema &SemaRef) {
   auto *CXXRD = ElementType->getAsCXXRecordDecl();
-  if (!CXXRD)
+  //FLEXC_CTSA
+  //if (!CXXRD)
+  if (!CXXRD || SemaRef.getLangOpts().isLangC())
     return false;
 
   CXXDestructorDecl *Destructor = SemaRef.LookupDestructor(CXXRD);
@@ -5121,7 +5123,10 @@ static void TryValueInitialization(Sema &S,
   T = S.Context.getBaseElementType(T);
 
   if (const RecordType *RT = T->getAs<RecordType>()) {
-    if (CXXRecordDecl *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl())) {
+    //FLEXC_CTSA
+    //if (CXXRecordDecl *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl())) {
+    CXXRecordDecl *ClassDecl = dyn_cast<CXXRecordDecl>(RT->getDecl());
+    if (ClassDecl && !S.getLangOpts().isLangC()) {
       bool NeedZeroInitialization = true;
       // C++98:
       // -- if T is a class type (clause 9) with a user-declared constructor

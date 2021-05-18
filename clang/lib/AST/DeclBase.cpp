@@ -985,6 +985,15 @@ bool Decl::AccessDeclContextSanity() const {
       isa<LifetimeExtendedTemporaryDecl>(this))
     return true;
 
+  // Check 4 and 8 from the conditional test above but taking into
+  // consideration FlexC CTSA modifications where a CXXRecordDecl is
+  // used to represent FlexC struct/union records in a C language
+  // context.
+  if (getLangOpts().isLangC()
+          ? (getDeclContext() && isa<CXXRecordDecl>(getDeclContext()))
+          : isa<CXXRecordDecl>(this))
+    return true;
+
   assert(Access != AS_none &&
          "Access specifier is AS_none inside a record decl");
 #endif
@@ -1527,8 +1536,11 @@ void DeclContext::addHiddenDecl(Decl *D) {
 
   // Notify a C++ record declaration that we've added a member, so it can
   // update its class-specific state.
+  //if (auto *Record = dyn_cast<CXXRecordDecl>(this))
+  //  Record->addedMember(D);
   if (auto *Record = dyn_cast<CXXRecordDecl>(this))
-    Record->addedMember(D);
+    if (!D->getLangOpts().isLangC())
+      Record->addedMember(D);
 
   // If this is a newly-created (not de-serialized) import declaration, wire
   // it in to the list of local import declarations.

@@ -193,7 +193,8 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
   if (getLangOpts().ObjC)
     NSAPIObj.reset(new NSAPI(Context));
 
-  if (getLangOpts().CPlusPlus)
+  //if (getLangOpts().CPlusPlus)
+  if (getLangOpts().CPlusPlus || getLangOpts().isLangC())
     FieldCollector.reset(new CXXFieldCollector());
 
   // Tell diagnostics how to render things from the AST library.

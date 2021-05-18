@@ -437,6 +437,17 @@ public:
   bool hasWasmExceptions() const {
     return getExceptionHandling() == ExceptionHandlingKind::Wasm;
   }
+
+  //unsigned isEnabled(DiagnosticsEngine &D, unsigned diag) {
+  //    return (unsigned)!D.isIgnored(diag, SourceLocation());
+  //}
+  bool isLangC() const {
+    //Sema &s = getSema(); 
+    //DiagnosticsEngine &D = S.getDiagnostics();
+    //bool enableTSA = isEnabled(D, warn_double_lock);
+    return 0 ;//(C99 || C11 || C17 || C2x);
+    //return (C99 || C11 || C17 || C2x);
+  }
 };
 
 /// Floating point control options

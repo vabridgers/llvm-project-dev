@@ -3259,7 +3259,9 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
           Builder.FieldOffsets);
     }
   } else {
-    if (const auto *RD = dyn_cast<CXXRecordDecl>(D)) {
+    //if (const auto *RD = dyn_cast<CXXRecordDecl>(D)) {
+    const auto *RD = dyn_cast<CXXRecordDecl>(D);
+    if (RD && !getLangOpts().isLangC()) {
       EmptySubobjectMap EmptySubobjects(*this, RD);
       ItaniumRecordLayoutBuilder Builder(*this, &EmptySubobjects);
       Builder.Layout(RD);

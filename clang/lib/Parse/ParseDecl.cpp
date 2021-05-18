@@ -4167,7 +4167,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 ///
 void Parser::ParseStructDeclaration(
     ParsingDeclSpec &DS,
-    llvm::function_ref<void(ParsingFieldDeclarator &)> FieldsCallback) {
+    llvm::function_ref<Decl*(ParsingFieldDeclarator &)> FieldsCallback) {
+//    llvm::function_ref<void(ParsingFieldDeclarator &)> FieldsCallback) {
 
   if (Tok.is(tok::kw___extension__)) {
     // __extension__ silences extension warnings in the subexpression.
@@ -4194,6 +4195,9 @@ void Parser::ParseStructDeclaration(
     DS.complete(TheDecl);
     return;
   }
+
+  // Contain late-parsed attributes so they can be attached to the Decl later.
+  LateParsedAttrList LateParsedAttrs;
 
   // Read struct-declarators until we find the semicolon.
   bool FirstDeclarator = true;
@@ -4229,10 +4233,18 @@ void Parser::ParseStructDeclaration(
     }
 
     // If attributes exist after the declarator, parse them.
-    MaybeParseGNUAttributes(DeclaratorInfo.D);
+    if (getLangOpts().isLangC())
+      MaybeParseGNUAttributes(DeclaratorInfo.D, &LateParsedAttrs);
+    else
+      MaybeParseGNUAttributes(DeclaratorInfo.D);
 
     // We're done with this declarator;  invoke the callback.
-    FieldsCallback(DeclaratorInfo);
+    Decl *Field = FieldsCallback(DeclaratorInfo);
+
+    // Set the Decl for any late parsed attributes.
+    for (unsigned i = 0, ni = LateParsedAttrs.size(); i < ni; ++i)
+      LateParsedAttrs[i]->addDecl(Field);
+    LateParsedAttrs.clear();
 
     // If we don't have a comma, it is either the end of the list (a ';')
     // or an error, bail out.
@@ -4264,6 +4276,18 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
     return;
 
   ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+
+  // Determine whether this is a non-nested class. Note that local
+  // classes are *not* considered to be nested classes.
+  bool NonNestedClass = true;
+
+  // Note that we are parsing a new (potentially-nested) struct/union definition.
+  ParsingClassDefinition ParsingDef(*this, TagDecl, NonNestedClass,
+                                    TagType == DeclSpec::TST_interface);
+
+  if (getLangOpts().isLangC())
+    Actions.ActOnCMemberDeclarations();
+
   Actions.ActOnTagStartDefinition(getCurScope(), TagDecl);
 
   // While we still have something to read, read the declarations in the struct.
@@ -4311,13 +4335,14 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
     }
 
     if (!Tok.is(tok::at)) {
-      auto CFieldCallback = [&](ParsingFieldDeclarator &FD) {
+      auto CFieldCallback = [&](ParsingFieldDeclarator &FD) -> Decl* {
         // Install the declarator into the current TagDecl.
         Decl *Field =
             Actions.ActOnField(getCurScope(), TagDecl,
                                FD.D.getDeclSpec().getSourceRange().getBegin(),
                                FD.D, FD.BitfieldSize);
         FD.complete(Field);
+        return Field;
       };
 
       // Parse all the comma separated declarators.
@@ -4370,8 +4395,13 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   Actions.ActOnFields(getCurScope(), RecordLoc, TagDecl, FieldDecls,
                       T.getOpenLocation(), T.getCloseLocation(), attrs);
-  StructScope.Exit();
+  ParseLexedAttributes(getCurrentClass());
   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
+
+  // Exit the struct/union scope.
+  ParsingDef.Pop();
+  //StructScope.Exit();
+  //Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 }
 
 /// ParseEnumSpecifier

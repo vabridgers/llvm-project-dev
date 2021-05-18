@@ -1945,9 +1945,14 @@ ImplicitCastExpr *ImplicitCastExpr::Create(const ASTContext &C, QualType T,
           PathSize, FPO.requiresTrailingStorage()));
   // Per C++ [conv.lval]p3, lvalue-to-rvalue conversions on class and
   // std::nullptr_t have special semantics not captured by CK_LValueToRValue.
+  //assert((Kind != CK_LValueToRValue ||
+  //        !(T->isNullPtrType() || T->getAsCXXRecordDecl())) &&
+  //       "invalid type for lvalue-to-rvalue conversion");
   assert((Kind != CK_LValueToRValue ||
-          !(T->isNullPtrType() || T->getAsCXXRecordDecl())) &&
+          !(T->isNullPtrType() ||
+            (T->getAsCXXRecordDecl() && !C.getLangOpts().isLangC()))) &&
          "invalid type for lvalue-to-rvalue conversion");
+
   ImplicitCastExpr *E =
       new (Buffer) ImplicitCastExpr(T, Kind, Operand, PathSize, FPO, VK);
   if (PathSize)

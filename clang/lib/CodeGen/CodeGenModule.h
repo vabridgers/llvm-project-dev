@@ -907,7 +907,9 @@ public:
 
   /// Returns the minimum object size for an object of the given type.
   CharUnits getMinimumObjectSize(QualType Ty) {
-    if (CXXRecordDecl *RD = Ty->getAsCXXRecordDecl())
+    //if (CXXRecordDecl *RD = Ty->getAsCXXRecordDecl())
+    CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
+    if (RD && !getLangOpts().isLangC())
       return getMinimumClassObjectSize(RD);
     return getContext().getTypeSizeInChars(Ty);
   }

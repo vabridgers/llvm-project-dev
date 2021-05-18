@@ -208,6 +208,7 @@ namespace {
 // specific kind of name lookup.
 static inline unsigned getIDNS(Sema::LookupNameKind NameKind,
                                bool CPlusPlus,
+                               bool FlexCCTSAContext,
                                bool Redeclaration) {
   unsigned IDNS = 0;
   switch (NameKind) {
@@ -222,6 +223,8 @@ static inline unsigned getIDNS(Sema::LookupNameKind NameKind,
       if (Redeclaration)
         IDNS |= Decl::IDNS_TagFriend | Decl::IDNS_OrdinaryFriend;
     }
+    if (FlexCCTSAContext)
+      IDNS |= Decl::IDNS_Member;
     if (Redeclaration)
       IDNS |= Decl::IDNS_LocalExtern;
     break;
@@ -296,7 +299,10 @@ static inline unsigned getIDNS(Sema::LookupNameKind NameKind,
 }
 
 void LookupResult::configure() {
+  //IDNS = getIDNS(LookupKind, getSema().getLangOpts().CPlusPlus,
+  //               isForRedeclaration());
   IDNS = getIDNS(LookupKind, getSema().getLangOpts().CPlusPlus,
+                 getSema().getLangOpts().isLangC(),
                  isForRedeclaration());
 
   // If we're looking for one of the allocation or deallocation
@@ -2176,7 +2182,8 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
 
   if (LookupDirect(*this, R, LookupCtx)) {
     R.resolveKind();
-    if (isa<CXXRecordDecl>(LookupCtx))
+    //if (isa<CXXRecordDecl>(LookupCtx))
+    if (isa<CXXRecordDecl>(LookupCtx) && !getLangOpts().isLangC())
       R.setNamingClass(cast<CXXRecordDecl>(LookupCtx));
     return true;
   }
@@ -3832,8 +3839,11 @@ private:
       return;
     }
 
-    if (CXXRecordDecl *Class = dyn_cast<CXXRecordDecl>(Ctx))
-      Result.getSema().ForceDeclarationOfImplicitMembers(Class);
+    //if (CXXRecordDecl *Class = dyn_cast<CXXRecordDecl>(Ctx))
+    //  Result.getSema().ForceDeclarationOfImplicitMembers(Class);
+    if (!Result.getSema().getLangOpts().isLangC())
+      if (CXXRecordDecl *Class = dyn_cast<CXXRecordDecl>(Ctx))
+        Result.getSema().ForceDeclarationOfImplicitMembers(Class);
 
     // We sometimes skip loading namespace-level results (they tend to be huge).
     bool Load = LoadExternal ||

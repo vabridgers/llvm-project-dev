@@ -2471,7 +2471,9 @@ llvm::DIType *CGDebugInfo::CreateTypeDefinition(const RecordType *Ty) {
     return FwdDecl;
 
   if (const auto *CXXDecl = dyn_cast<CXXRecordDecl>(RD))
-    CollectContainingType(CXXDecl, FwdDecl);
+   if (!CGM.getLangOpts().isLangC())
+      CollectContainingType(CXXDecl, FwdDecl);
+    //CollectContainingType(CXXDecl, FwdDecl);
 
   // Push the struct on region stack.
   LexicalBlockStack.emplace_back(&*FwdDecl);

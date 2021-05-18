@@ -230,7 +230,7 @@ private:
 CGRecordLowering::CGRecordLowering(CodeGenTypes &Types, const RecordDecl *D,
                                    bool Packed)
     : Types(Types), Context(Types.getContext()), D(D),
-      RD(dyn_cast<CXXRecordDecl>(D)),
+      RD(Context.getLangOpts().isLangC() ? nullptr : dyn_cast<CXXRecordDecl>(D)), /* RD(dyn_cast<CXXRecordDecl>(D)), */
       Layout(Types.getContext().getASTRecordLayout(D)),
       DataLayout(Types.getDataLayout()), IsZeroInitializable(true),
       IsZeroInitializableAsBase(true), Packed(Packed) {}
@@ -882,7 +882,9 @@ CodeGenTypes::ComputeRecordLayout(const RecordDecl *D, llvm::StructType *Ty) {
 
   // If we're in C++, compute the base subobject type.
   llvm::StructType *BaseTy = nullptr;
-  if (isa<CXXRecordDecl>(D) && !D->isUnion() && !D->hasAttr<FinalAttr>()) {
+  //if (isa<CXXRecordDecl>(D) && !D->isUnion() && !D->hasAttr<FinalAttr>()) {
+  if ((isa<CXXRecordDecl>(D) && !Context.getLangOpts().isLangC()) &&
+      !D->isUnion() && !D->hasAttr<FinalAttr>()) {
     BaseTy = Ty;
     if (Builder.Layout.getNonVirtualSize() != Builder.Layout.getSize()) {
       CGRecordLowering BaseBuilder(*this, D, /*Packed=*/Builder.Packed);

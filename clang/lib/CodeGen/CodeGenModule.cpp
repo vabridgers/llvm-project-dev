@@ -6355,8 +6355,11 @@ CharUnits CodeGenModule::getNaturalTypeAlignment(QualType T,
   const CXXRecordDecl *RD;
   if (T.getQualifiers().hasUnaligned()) {
     Alignment = CharUnits::One();
+//  } else if (forPointeeType && !AlignForArray &&
+//             (RD = T->getAsCXXRecordDecl())) {
   } else if (forPointeeType && !AlignForArray &&
-             (RD = T->getAsCXXRecordDecl())) {
+             (RD = T->getAsCXXRecordDecl()) &&
+             !getLangOpts().isLangC()) {
     // For C++ class pointees, we don't know whether we're pointing at a
     // base or a complete object, so we generally need to use the
     // non-virtual alignment.

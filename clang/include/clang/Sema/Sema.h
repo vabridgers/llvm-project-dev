@@ -3141,6 +3141,9 @@ public:
                                        bool IsFinalSpelledSealed,
                                        SourceLocation LBraceLoc);
 
+  // FLEXC_CTSA
+  void ActOnCMemberDeclarations();
+
   /// ActOnTagFinishDefinition - Invoked once we have finished parsing
   /// the definition of a tag (enumeration, class, struct, or union).
   void ActOnTagFinishDefinition(Scope *S, Decl *TagDecl,

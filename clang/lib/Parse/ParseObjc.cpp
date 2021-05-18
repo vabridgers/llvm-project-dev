@@ -770,7 +770,17 @@ void Parser::ParseObjCInterfaceDeclList(tok::ObjCKeywordKind contextKey,
 
       // Parse all the comma separated declarators.
       ParsingDeclSpec DS(*this);
-      ParseStructDeclaration(DS, ObjCPropertyCallback);
+
+      // Lambda shim to adapt ObjCPropertyCallbackShim decl profile to match
+      // that of modified FieldsCallback parameter of FlexC CTSA version of
+      // Parser::ParseStructDeclaration().
+      auto ObjCPropertyCallbackShim = [&](ParsingFieldDeclarator &FD) -> Decl* {
+        ObjCPropertyCallback(FD);
+        return nullptr;
+      };
+      ParseStructDeclaration(DS, ObjCPropertyCallbackShim);
+
+      //ParseStructDeclaration(DS, ObjCPropertyCallback);
 
       ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list);
       break;
@@ -1987,7 +1997,17 @@ void Parser::ParseObjCClassInstanceVariables(Decl *interfaceDecl,
 
     // Parse all the comma separated declarators.
     ParsingDeclSpec DS(*this);
-    ParseStructDeclaration(DS, ObjCIvarCallback);
+
+    // Lambda shim to adapt ObjCIvarCallbackShim decl profile to match
+    // that of modified FieldsCallback parameter of FlexC CTSA version of
+    // Parser::ParseStructDeclaration().
+    auto ObjCIvarCallbackShim = [&](ParsingFieldDeclarator &FD) {
+      ObjCIvarCallback(FD);
+      return nullptr;
+    };
+    ParseStructDeclaration(DS, ObjCIvarCallbackShim);
+
+    //ParseStructDeclaration(DS, ObjCIvarCallback);
 
     if (Tok.is(tok::semi)) {
       ConsumeToken();

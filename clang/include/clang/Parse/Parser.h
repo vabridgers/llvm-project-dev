@@ -2356,9 +2356,14 @@ private:
   void ParseStructUnionBody(SourceLocation StartLoc, DeclSpec::TST TagType,
                             RecordDecl *TagDecl);
 
+  //FLEXC_CTSA
   void ParseStructDeclaration(
       ParsingDeclSpec &DS,
-      llvm::function_ref<void(ParsingFieldDeclarator &)> FieldsCallback);
+      llvm::function_ref<Decl*(ParsingFieldDeclarator &)> FieldsCallback);
+
+  //void ParseStructDeclaration(
+  //    ParsingDeclSpec &DS,
+  //    llvm::function_ref<void(ParsingFieldDeclarator &)> FieldsCallback);
 
   bool isDeclarationSpecifier(bool DisambiguatingWithExpression = false);
   bool isTypeSpecifierQualifier();
