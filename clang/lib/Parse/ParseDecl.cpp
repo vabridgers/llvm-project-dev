@@ -4170,6 +4170,7 @@ void Parser::ParseStructDeclaration(
     llvm::function_ref<Decl*(ParsingFieldDeclarator &)> FieldsCallback) {
 //    llvm::function_ref<void(ParsingFieldDeclarator &)> FieldsCallback) {
 
+  //assert(!getLangOpts().CPlusPlus && "can't be cpp" );
   if (Tok.is(tok::kw___extension__)) {
     // __extension__ silences extension warnings in the subexpression.
     ExtensionRAIIObject O(Diags);  // Use RAII to do this.
@@ -4233,6 +4234,8 @@ void Parser::ParseStructDeclaration(
     }
 
     // If attributes exist after the declarator, parse them.
+    // Explore taking out conditional here, since we think this only
+    // proceses C code.
     if (getLangOpts().isLangC())
       MaybeParseGNUAttributes(DeclaratorInfo.D, &LateParsedAttrs);
     else
@@ -4395,7 +4398,10 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   Actions.ActOnFields(getCurScope(), RecordLoc, TagDecl, FieldDecls,
                       T.getOpenLocation(), T.getCloseLocation(), attrs);
+
+  Actions.setFlexCLateParsedAttrContext(true);
   ParseLexedAttributes(getCurrentClass());
+  Actions.setFlexCLateParsedAttrContext(false);
   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 
   // Exit the struct/union scope.

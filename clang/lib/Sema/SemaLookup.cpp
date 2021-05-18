@@ -302,7 +302,7 @@ void LookupResult::configure() {
   //IDNS = getIDNS(LookupKind, getSema().getLangOpts().CPlusPlus,
   //               isForRedeclaration());
   IDNS = getIDNS(LookupKind, getSema().getLangOpts().CPlusPlus,
-                 getSema().getLangOpts().isLangC(),
+                 getSema().getFlexCLateParsedAttrContext(),
                  isForRedeclaration());
 
   // If we're looking for one of the allocation or deallocation
@@ -2184,6 +2184,8 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
     R.resolveKind();
     //if (isa<CXXRecordDecl>(LookupCtx))
     if (isa<CXXRecordDecl>(LookupCtx) && !getLangOpts().isLangC())
+    //assert(!getLangOpts().isLangC() && "is C and not expected");
+    //if (isa<CXXRecordDecl>(LookupCtx))
       R.setNamingClass(cast<CXXRecordDecl>(LookupCtx));
     return true;
   }

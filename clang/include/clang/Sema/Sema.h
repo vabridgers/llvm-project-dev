@@ -3142,6 +3142,14 @@ public:
                                        SourceLocation LBraceLoc);
 
   // FLEXC_CTSA
+   bool FlexCLateParsedAttrContext = false;
+public:
+  bool getFlexCLateParsedAttrContext() { return FlexCLateParsedAttrContext; }
+
+  void setFlexCLateParsedAttrContext(const bool flag) {
+    FlexCLateParsedAttrContext = flag;
+  }
+
   void ActOnCMemberDeclarations();
 
   /// ActOnTagFinishDefinition - Invoked once we have finished parsing

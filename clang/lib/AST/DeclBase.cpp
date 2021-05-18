@@ -1538,6 +1538,9 @@ void DeclContext::addHiddenDecl(Decl *D) {
   // update its class-specific state.
   //if (auto *Record = dyn_cast<CXXRecordDecl>(this))
   //  Record->addedMember(D);
+  //  Maybe need this for C and C++, check this.
+  //  Depends on the specific use cases?
+  //  Maybe ctors, dtors, special stuff? don't know. follow up....
   if (auto *Record = dyn_cast<CXXRecordDecl>(this))
     if (!D->getLangOpts().isLangC())
       Record->addedMember(D);

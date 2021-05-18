@@ -1844,6 +1844,8 @@ static bool checkDestructorReference(QualType ElementType, SourceLocation Loc,
   auto *CXXRD = ElementType->getAsCXXRecordDecl();
   //FLEXC_CTSA
   //if (!CXXRD)
+  // and or or?
+  //if (!CXXRD && SemaRef.getLangOpts().isLangC())
   if (!CXXRD || SemaRef.getLangOpts().isLangC())
     return false;
 
