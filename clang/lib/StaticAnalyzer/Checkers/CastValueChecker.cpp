@@ -249,8 +249,11 @@ static void addCastTransition(const CallEvent &Call, DefinedOrUnknownSVal DV,
     State = setDynamicTypeAndCastInfo(State, MR, CastFromTy, CastToTy,
                                       CastSucceeds);
 
+  // Vince -- TODO: publish to github branch first for Balazs to check. and
+  // check against our code base.
+
   SVal V = CastSucceeds ? C.getSValBuilder().evalCast(DV, CastToTy, CastFromTy)
-                        : C.getSValBuilder().makeNull();
+                        : C.getSValBuilder().makeNullWithType(CastToTy);
   C.addTransition(
       State->BindExpr(Call.getOriginExpr(), C.getLocationContext(), V, false),
       getNoteTag(C, CastInfo, CastToTy, Object, CastSucceeds, IsKnownCast));
@@ -359,7 +362,9 @@ static void evalNullParamNullReturn(const CallEvent &Call,
   if (ProgramStateRef State = C.getState()->assume(DV, false))
     C.addTransition(State->BindExpr(Call.getOriginExpr(),
                                     C.getLocationContext(),
-                                    C.getSValBuilder().makeNull(), false),
+                                    C.getSValBuilder().makeNullWithType(
+                                        Call.getOriginExpr()->getType()),
+                                    false),
                     C.getNoteTag("Assuming null pointer is passed into cast",
                                  /*IsPrunable=*/true));
 }

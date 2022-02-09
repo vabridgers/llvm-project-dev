@@ -71,7 +71,8 @@ private:
   bool handleMoveCtr(const CallEvent &Call, CheckerContext &C,
                      const MemRegion *ThisRegion) const;
   bool updateMovedSmartPointers(CheckerContext &C, const MemRegion *ThisRegion,
-                                const MemRegion *OtherSmartPtrRegion) const;
+                                const MemRegion *OtherSmartPtrRegion,
+                                const CallEvent &Call) const;
   void handleBoolConversion(const CallEvent &Call, CheckerContext &C) const;
   bool handleComparisionOp(const CallEvent &Call, CheckerContext &C) const;
   bool handleOstreamOperator(const CallEvent &Call, CheckerContext &C) const;
@@ -383,7 +384,8 @@ bool SmartPtrModeling::evalCall(const CallEvent &Call,
       return handleMoveCtr(Call, C, ThisRegion);
 
     if (Call.getNumArgs() == 0) {
-      auto NullVal = C.getSValBuilder().makeNull();
+      auto NullVal = C.getSValBuilder().makeNullWithType(
+          CC->getCXXThisVal().getType(C.getASTContext()));
       State = State->set<TrackedRegionMap>(ThisRegion, NullVal);
 
       C.addTransition(
@@ -640,7 +642,8 @@ void SmartPtrModeling::handleRelease(const CallEvent &Call,
                             *InnerPointVal);
   }
 
-  auto ValueToUpdate = C.getSValBuilder().makeNull();
+  auto ValueToUpdate = C.getSValBuilder().makeNullWithType(
+      IC->getCXXThisVal().getType(C.getASTContext()));
   State = State->set<TrackedRegionMap>(ThisRegion, ValueToUpdate);
 
   C.addTransition(State, C.getNoteTag([ThisRegion](PathSensitiveBugReport &BR,
@@ -744,7 +747,8 @@ bool SmartPtrModeling::handleAssignOp(const CallEvent &Call,
     bool AssignedNull = Call.getArgSVal(0).isZeroConstant();
     if (!AssignedNull)
       return false;
-    auto NullVal = C.getSValBuilder().makeNull();
+    auto NullVal = C.getSValBuilder().makeNullWithType(
+        Call.getArgSVal(0).getType(C.getASTContext()));
     State = State->set<TrackedRegionMap>(ThisRegion, NullVal);
     C.addTransition(State, C.getNoteTag([ThisRegion](PathSensitiveBugReport &BR,
                                                      llvm::raw_ostream &OS) {
@@ -758,7 +762,7 @@ bool SmartPtrModeling::handleAssignOp(const CallEvent &Call,
     return true;
   }
 
-  return updateMovedSmartPointers(C, ThisRegion, OtherSmartPtrRegion);
+  return updateMovedSmartPointers(C, ThisRegion, OtherSmartPtrRegion, Call);
 }
 
 bool SmartPtrModeling::handleMoveCtr(const CallEvent &Call, CheckerContext &C,
@@ -767,17 +771,18 @@ bool SmartPtrModeling::handleMoveCtr(const CallEvent &Call, CheckerContext &C,
   if (!OtherSmartPtrRegion)
     return false;
 
-  return updateMovedSmartPointers(C, ThisRegion, OtherSmartPtrRegion);
+  return updateMovedSmartPointers(C, ThisRegion, OtherSmartPtrRegion, Call);
 }
 
 bool SmartPtrModeling::updateMovedSmartPointers(
     CheckerContext &C, const MemRegion *ThisRegion,
-    const MemRegion *OtherSmartPtrRegion) const {
+    const MemRegion *OtherSmartPtrRegion, const CallEvent &Call) const {
   ProgramStateRef State = C.getState();
   const auto *OtherInnerPtr = State->get<TrackedRegionMap>(OtherSmartPtrRegion);
   if (OtherInnerPtr) {
     State = State->set<TrackedRegionMap>(ThisRegion, *OtherInnerPtr);
-    auto NullVal = C.getSValBuilder().makeNull();
+    auto NullVal = C.getSValBuilder().makeNullWithType(
+        OtherInnerPtr->getType(C.getASTContext()));
     State = State->set<TrackedRegionMap>(OtherSmartPtrRegion, NullVal);
     bool IsArgValNull = OtherInnerPtr->isZeroConstant();
 
@@ -803,7 +808,16 @@ bool SmartPtrModeling::updateMovedSmartPointers(
   } else {
     // In case we dont know anything about value we are moving from
     // remove the entry from map for which smart pointer got moved to.
-    auto NullVal = C.getSValBuilder().makeNull();
+    const ClassTemplateSpecializationDecl *SpecDecl =
+        dyn_cast<ClassTemplateSpecializationDecl>(
+            cast<CXXMethodDecl>(Call.getDecl())->getParent());
+    ArrayRef<TemplateArgument> TemplateArgs =
+        SpecDecl->getTemplateArgs().asArray();
+    const TemplateArgument &T = TemplateArgs[0];
+    assert(T.getKind() == TemplateArgument::Type);
+    QualType Ty = C.getASTContext().getPointerType(T.getAsType());
+    // For unique_ptr<A>, Ty will be 'A*'.
+    auto NullVal = C.getSValBuilder().makeNullWithType(Ty);
     State = State->remove<TrackedRegionMap>(ThisRegion);
     State = State->set<TrackedRegionMap>(OtherSmartPtrRegion, NullVal);
     C.addTransition(State, C.getNoteTag([OtherSmartPtrRegion,
@@ -868,7 +882,7 @@ void SmartPtrModeling::handleBoolConversion(const CallEvent &Call,
     std::tie(NotNullState, NullState) =
         State->assume(InnerPointerVal.castAs<DefinedOrUnknownSVal>());
 
-    auto NullVal = C.getSValBuilder().makeNull();
+    auto NullVal = C.getSValBuilder().makeNullWithType(CallExpr->getType());
     // Explicitly tracking the region as null.
     NullState = NullState->set<TrackedRegionMap>(ThisRegion, NullVal);
 

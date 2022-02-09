@@ -61,7 +61,7 @@ SValBuilder::SValBuilder(llvm::BumpPtrAllocator &alloc, ASTContext &context,
 
 DefinedOrUnknownSVal SValBuilder::makeZeroVal(QualType type) {
   if (Loc::isLocType(type))
-    return makeNull();
+    return makeNullWithType(type);
 
   if (type->isIntegralOrEnumerationType())
     return makeIntVal(0, type);
@@ -358,8 +358,10 @@ Optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
   case Stmt::ObjCBoolLiteralExprClass:
     return makeBoolVal(cast<ObjCBoolLiteralExpr>(E));
 
-  case Stmt::CXXNullPtrLiteralExprClass:
-    return makeNull();
+  case Stmt::CXXNullPtrLiteralExprClass: {
+    const auto *TE = cast<CXXNullPtrLiteralExpr>(E);
+    return makeNullWithType(TE->getType());
+  }
 
   case Stmt::CStyleCastExprClass:
   case Stmt::CXXFunctionalCastExprClass:
@@ -399,7 +401,7 @@ Optional<SVal> SValBuilder::getConstantVal(const Expr *E) {
 
     if (Loc::isLocType(E->getType()))
       if (E->isNullPointerConstant(Ctx, Expr::NPC_ValueDependentIsNotNull))
-        return makeNull();
+        return makeNullWithType(E->getType());
 
     return None;
   }

@@ -365,11 +365,14 @@ public:
   /// space.
   /// \param type pointer type.
   Loc makeNullWithType(QualType type) {
-    return loc::ConcreteInt(BasicVals.getZeroWithTypeSize(type));
-  }
-
-  Loc makeNull() {
-    return loc::ConcreteInt(BasicVals.getZeroWithPtrWidth());
+    // step1 - this assert
+    // step2 - remove this assert, add the steps from CastValueChecker.cpp
+    // assert(!type->isReferenceType());
+    QualType nullType = type;
+    if (type->isReferenceType()) {
+      nullType = Context.getPointerType(type->getPointeeType());
+    }
+    return loc::ConcreteInt(BasicVals.getZeroWithTypeSize(nullType));
   }
 
   Loc makeLoc(SymbolRef sym) {
